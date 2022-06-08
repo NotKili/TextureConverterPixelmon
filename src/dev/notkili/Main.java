@@ -300,6 +300,7 @@ public class Main {
         try {
             JsonObject pokemonObject = JsonParser.parseReader(new BufferedReader(new FileReader(pokeStatsFile))).getAsJsonObject();
             String strippedTexture = textureName.replace("custom-", "");
+            strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
             String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
 
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
@@ -326,6 +327,7 @@ public class Main {
 
                                     if (writeToFile(outputFolder, pokemonObject, pokemonName, pokemon.getName())) {
                                         alreadyConvertedPokemon.add(pokemonName);
+                                        return true;
                                     } else {
                                         return false;
                                     }
@@ -352,16 +354,8 @@ public class Main {
 
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
-            if (pokemonName.equals("pidgeot")) {
-                System.out.println("Looking for form: " + pokemon.getForm());
-            }
-
             for (int i = 0; i < forms.size(); i++) {
                 JsonObject currentForm = forms.get(i).getAsJsonObject();
-
-                if (pokemonName.equals("pidgeot")) {
-                    System.out.println("Found form: " + currentForm.get("name").getAsString());
-                }
 
                 if (currentForm.get("name").getAsString().equals(pokemon.getForm())) {
                     JsonArray genderProperties = currentForm.get("genderProperties").getAsJsonArray();
