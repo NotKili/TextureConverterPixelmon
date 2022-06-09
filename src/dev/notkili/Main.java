@@ -15,9 +15,13 @@ public class Main {
     private static int TEXTURE_ERROR_COUNT = 0;
     private static int SPRITE_ERROR_COUNT = 0;
     private static int FILE_ERROR_COUNT = 0;
+    private static int EMISSIVE_TEXTURE_ERROR_COUNT = 0;
     private static ArrayList<String> erroredTextures = new ArrayList<>();
     private static ArrayList<String> erroredSprites = new ArrayList<>();
+    private static ArrayList<String> erroredEmissiveTextures = new ArrayList<>();
     private static ArrayList<String> erroredFiles = new ArrayList<>();
+
+    private static ArrayList<EmissiveTextures> emissiveTextures = new ArrayList<>();
 
     // Arg 0 == Path of stats.json
     // Arg 1 == Path of textures
@@ -116,6 +120,12 @@ public class Main {
         }
 
         System.out.println("\n" +
+                "\nErrored Emissive Textures: " + EMISSIVE_TEXTURE_ERROR_COUNT);
+        for (String name : erroredEmissiveTextures) {
+            System.out.println("\t- " + name);
+        }
+
+        System.out.println("\n" +
                 "\nErrored Files (Stat's files unable to fetch): " + FILE_ERROR_COUNT);
         for (String name : erroredFiles) {
             System.out.println("\t- " + name);
@@ -157,6 +167,7 @@ public class Main {
 
             convertAllPokemon(statsFolder, pokemonTextureFolder, outputFolder);
             convertAllSprites(spriteTextureFolder, outputFolder);
+            convertAllEmissiveTextures(outputFolder);
         }
     }
 
@@ -169,7 +180,11 @@ public class Main {
 
         for (File pokemonFile : pokemonFolder.listFiles()) {
             if (pokemonFile.isDirectory()) {
-                convertAllPokemon(statsFolder, pokemonFile, outputFolder);
+                if (pokemonFile.getName().contains("emissive")) {
+                    emissiveTextures.add(new EmissiveTextures(pokemonFile, textureName));
+                } else {
+                    convertAllPokemon(statsFolder, pokemonFile, outputFolder);
+                }
             } else {
                 if (pokemonFile.getName().endsWith(".png")) {
                     String fileName = pokemonFile.getName().replace(".png", "");
@@ -233,6 +248,85 @@ public class Main {
         }
     }
 
+    private static void convertAllEmissiveTextures(File outputFolder) {
+        for (EmissiveTextures emissiveTextures : emissiveTextures) {
+            convertEmissiveTextureFolder(emissiveTextures.getFolder(), outputFolder, emissiveTextures.getTextureName());
+        }
+    }
+
+    private static void convertEmissiveTextureFolder(File textureFolder, File outputFolder, String textureName) {
+        for (File potentialEmissiveTexture : textureFolder.listFiles()) {
+            if (potentialEmissiveTexture.isDirectory()) {
+                convertEmissiveTextureFolder(potentialEmissiveTexture, outputFolder, textureName);
+            } else {
+                if (potentialEmissiveTexture.getName().endsWith(".png")) {
+                    String fileName = potentialEmissiveTexture.getName().replace(".png", "");
+                    PokemonObject pokemon = createPokemonObjectFromName(fileName);
+
+                    File pokemonStatsFile = findPokemonStatsFile(outputFolder, pokemon.name);
+
+                    if (pokemonStatsFile == null) {
+                        FILE_ERROR_COUNT++;
+                        System.err.println("Could not locate stats file for '" + pokemon + "'");
+                        erroredFiles.add(fileName);
+                        continue;
+                    }
+
+                    if (convertEmissiveTexture(pokemon, textureName, potentialEmissiveTexture.getName(), outputFolder, pokemonStatsFile)) {
+                        System.out.println("Converted the emissive texture '" + textureName + "' for " + pokemon);
+                    } else {
+                        EMISSIVE_TEXTURE_ERROR_COUNT++;
+                        erroredEmissiveTextures.add(textureName + ": " + fileName);
+                        System.err.println("An error occurred while trying to convert the sprite '" + textureName + "' for " + pokemon);
+                    }
+                } else {
+                    System.err.println("Found file with unsupported file extension: '" + potentialEmissiveTexture.getName() + "'");
+                }
+            }
+        }
+    }
+
+    private static boolean convertEmissiveTexture(PokemonObject pokemon, String textureName, String fileName, File outputFolder, File statsFile) {
+        try {
+            JsonObject pokemonObject = JsonParser.parseReader(new BufferedReader(new FileReader(statsFile))).getAsJsonObject();
+            String strippedTexture = textureName.replace("custom-", "");
+            strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
+            String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
+
+            JsonArray forms = pokemonObject.getAsJsonArray("forms");
+
+            for (int i = 0; i < forms.size(); i++) {
+                JsonObject currentForm = forms.get(i).getAsJsonObject();
+
+                if (isForm(pokemon.getForm(), currentForm.get("name").getAsString(), pokemon.getName())) {
+                    JsonArray genderProperties = currentForm.get("genderProperties").getAsJsonArray();
+                    String gender = pokemon.getGender();
+
+                    for (int k = 0; k < genderProperties.size(); k++) {
+                        JsonObject genderObject = genderProperties.get(k).getAsJsonObject();
+
+                        if (gender.equals("ALL") || genderObject.get("gender").getAsString().equals(gender)) {
+                            JsonArray allTextures = genderObject.getAsJsonArray("palettes");
+
+                            for (int j = 0; j < allTextures.size(); j++) {
+                                JsonObject currentTexture = allTextures.get(j).getAsJsonObject();
+
+                                if (currentTexture.get("name").getAsString().equals(strippedTexture)) {
+                                    currentTexture.addProperty("emissive", "pixelmon:pokemon/" + textureName + "/emissive/" + fileName + ".png");
+                                    return writeToFile(outputFolder, pokemonObject, pokemonName, pokemon.getName());
+                                }
+                            }
+                        }
+                    }
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static PokemonObject createPokemonObjectFromName(String name) {
         String[] splittedArray = name.split("-");
 
@@ -262,22 +356,33 @@ public class Main {
             shiny = true;
         }
 
-        if (pokemonName.equals("ho")) {
-            pokemonName = "hooh";
-            formName = splittedArray.length > 2 ? joinArray(2, splittedArray) : "";;
-        } else if (pokemonName.equals("porygon")) {
-            if (splittedArray.length > 1) {
-                if (splittedArray[1].equals("z")) {
-                    formName = splittedArray.length > 2 ? joinArray(2, splittedArray) : "";
-                    pokemonName = "porygon-z";
+        switch (pokemonName) {
+            case "ho":
+                pokemonName = pokemonName + "oh";
+                formName = splittedArray.length > 2 ? joinArray(2, splittedArray) : "";
+                ;
+                break;
+            case "porygon":
+                if (splittedArray.length > 1) {
+                    if (splittedArray[1].equals("z")) {
+                        formName = splittedArray.length > 2 ? joinArray(2, splittedArray) : "";
+                        pokemonName = "porygon-z";
+                    } else {
+                        formName = joinArray(1, splittedArray);
+                    }
                 } else {
-                    formName = joinArray(1, splittedArray);
+                    formName = "";
                 }
-            } else {
-                formName = "";
-            }
-        } else {
-            formName = splittedArray.length > 1 ? joinArray(1, splittedArray) : "";
+                break;
+            case "kommo":
+            case "jangmo":
+            case "hakamo":
+                pokemonName = pokemonName + "o";
+                formName = splittedArray.length > 2 ? joinArray(2, splittedArray) : "";
+                break;
+            default:
+                formName = splittedArray.length > 1 ? joinArray(1, splittedArray) : "";
+                break;
         }
 
         if (formName.equals("normal")) {
@@ -289,7 +394,14 @@ public class Main {
                 formName = "alolan";
                 break;
             case "galar":
+            case "galar-standard":
                 formName = "galarian";
+                break;
+            case "galar-zen":
+                formName = "galarian_zen";
+                break;
+            case "incarnate":
+                formName = "therian";
                 break;
         }
 
@@ -307,9 +419,8 @@ public class Main {
 
             for (int i = 0; i < forms.size(); i++) {
                 JsonObject currentForm = forms.get(i).getAsJsonObject();
-                String formName = pokemon.getForm();
 
-                if (currentForm.get("name").getAsString().equals(formName)) {
+                if (isForm(pokemon.getForm(), currentForm.get("name").getAsString(), pokemon.getName())) {
                     JsonArray genderProperties = currentForm.get("genderProperties").getAsJsonArray();
                     String gender = pokemon.getGender();
 
@@ -357,7 +468,7 @@ public class Main {
             for (int i = 0; i < forms.size(); i++) {
                 JsonObject currentForm = forms.get(i).getAsJsonObject();
 
-                if (currentForm.get("name").getAsString().equals(pokemon.getForm())) {
+                if (isForm(pokemon.getForm(), currentForm.get("name").getAsString(), pokemon.getName())) {
                     JsonArray genderProperties = currentForm.get("genderProperties").getAsJsonArray();
                     String gender = pokemon.getGender();
 
@@ -375,6 +486,7 @@ public class Main {
                             if (writeToFile(outputFolder, pokemonObject, pokemonName, String.format("%03d", dexNum))) {
                                 alreadyConvertedPokemon.add(pokemonName);
                             } else {
+                                System.out.println("Couldnt write to file");
                                 return false;
                             }
                         }
@@ -387,6 +499,17 @@ public class Main {
             e.printStackTrace();
             return false;
         }
+    }
+
+    private static boolean isForm(String formName, String currentForm, String pokemonName) {
+        switch (pokemonName) {
+            case "unown":
+                return formName.equals("") || formName.equals(currentForm);
+            case "tornadus":
+                return (formName.equals("") && currentForm.equals("incarnate")) || formName.equals(currentForm);
+        }
+
+        return formName.equals(currentForm);
     }
 
     private static boolean writeToFile(File outputFolder, JsonObject object, String pokemonName, String dexNum) {
@@ -503,6 +626,24 @@ public class Main {
                     ", form='" + form + '\'' +
                     ", shiny=" + shiny +
                     '}';
+        }
+    }
+
+    private static class EmissiveTextures {
+        private File folder;
+        private String textureName;
+
+        public EmissiveTextures(File folder, String textureName) {
+            this.folder = folder;
+            this.textureName = textureName;
+        }
+
+        public File getFolder() {
+            return folder;
+        }
+
+        public String getTextureName() {
+            return textureName;
         }
     }
 }
