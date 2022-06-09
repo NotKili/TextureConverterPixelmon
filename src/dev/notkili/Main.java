@@ -39,8 +39,6 @@ public class Main {
                 "\n\nDisclaimer: This won't work for pokemon who previously had forms that are now palettes, i.e. Vivillon, Florges, Shellos et cetera" +
                 "\nMimikyu needs 'Disguised'/'Busted' to be added as a palette" +
                 "\nThese pokemon must be changed manually in order for the program to recognize them" +
-                "\nThis also applies to emissive pokemon. Those need to be taken out of their folder and placed in the normal texture folder for the program to parse them properly" +
-                "\n(Or just remove them temporarily)" +
                 "\n\nSupported is:" +
                 "\n- All known forms (i.e. dynamax, mega, arceus ..." +
                 "\n- Genders (Male, Female, All (wildcard)" +
@@ -292,6 +290,7 @@ public class Main {
             String strippedTexture = textureName.replace("custom-", "");
             strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
             String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
+            int dexNum = pokemonObject.get("dex").getAsInt();
 
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
@@ -313,7 +312,7 @@ public class Main {
 
                                 if (currentTexture.get("name").getAsString().equals(strippedTexture)) {
                                     currentTexture.addProperty("emissive", "pixelmon:pokemon/" + textureName + "/emissive/" + fileName + ".png");
-                                    return writeToFile(outputFolder, pokemonObject, pokemonName, pokemon.getName());
+                                    return writeToFile(outputFolder, pokemonObject, pokemonName, String.format("%03d", dexNum));
                                 }
                             }
                         }
@@ -414,6 +413,7 @@ public class Main {
             String strippedTexture = textureName.replace("custom-", "");
             strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
             String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
+            int dexNum = pokemonObject.get("dex").getAsInt();
 
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
@@ -436,7 +436,7 @@ public class Main {
                                 if (currentTexture.get("name").getAsString().equals(strippedTexture)) {
                                     currentTexture.addProperty("sprite", "pixelmon:sprite/" + textureName + "/" + fileName + ".png");
 
-                                    if (writeToFile(outputFolder, pokemonObject, pokemonName, pokemon.getName())) {
+                                    if (writeToFile(outputFolder, pokemonObject, pokemonName, String.format("%03d", dexNum))) {
                                         alreadyConvertedPokemon.add(pokemonName);
                                         return true;
                                     } else {
