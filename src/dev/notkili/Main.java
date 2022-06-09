@@ -393,10 +393,10 @@ public class Main {
                 formName = "alolan";
                 break;
             case "galar":
-            case "galar-standard":
+            case "galarstandard":
                 formName = "galarian";
                 break;
-            case "galar-zen":
+            case "galarzen":
                 formName = "galarian_zen";
                 break;
             case "incarnate":
