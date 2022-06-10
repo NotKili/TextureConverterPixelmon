@@ -12,6 +12,12 @@ public class Main {
     private static HashSet<String> alreadyConvertedPokemon = new HashSet<>();
     private static Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
+    private static File logFile = new File("log.txt");
+    private static File resultFile = new File("result.txt");
+
+    private static BufferedWriter logWriter;
+    private static BufferedWriter resultWriter;
+
     private static int TEXTURE_ERROR_COUNT = 0;
     private static int SPRITE_ERROR_COUNT = 0;
     private static int FILE_ERROR_COUNT = 0;
@@ -34,6 +40,15 @@ public class Main {
         String pixelmonSpritesPath;
         String outputPath;
         PathValues tempResult;
+
+        try {
+            logWriter = new BufferedWriter(new FileWriter(logFile));
+            resultWriter = new BufferedWriter(new FileWriter(resultFile));
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Could not instantiate log-writer, can't continue");
+            return;
+        }
 
         System.out.println("Hey, please follow these steps to convert your existing texturepacks into the new pixelmon 9.0.0 stats-files!" +
                 "\n\nDisclaimer: This won't work for pokemon who previously had forms that are now palettes, i.e. Vivillon, Florges, Shellos et cetera" +
@@ -101,33 +116,42 @@ public class Main {
 
         convertAll(statsPath, pixelmonTexturesPath, pixelmonSpritesPath, outputPath);
 
-        System.out.println("Finished conversion! Your updated stats-files are now in '" + outputPath + "'");
+        logMessage("Finished conversion! Your updated stats-files are now in '" + outputPath + "'");
 
-        System.out.println("\nResults:" +
+
+        logResult("\nResults:" +
                 "\n" +
                 "\n" +
                 "\nErrored Textures: " + TEXTURE_ERROR_COUNT);
         for (String texture : erroredTextures) {
-            System.out.println("\t- " + texture);
+            logResult("\t- " + texture);
         }
 
-        System.out.println("\n" +
+        logResult("\n" +
                 "\nErrored Sprites: " + SPRITE_ERROR_COUNT);
         for (String sprite : erroredSprites) {
-            System.out.println("\t- " + sprite);
+            logResult("\t- " + sprite);
         }
 
-        System.out.println("\n" +
+        logResult("\n" +
                 "\nErrored Emissive Textures: " + EMISSIVE_TEXTURE_ERROR_COUNT);
         for (String name : erroredEmissiveTextures) {
-            System.out.println("\t- " + name);
+            logResult("\t- " + name);
         }
 
-        System.out.println("\n" +
+        logResult("\n" +
                 "\nErrored Files (Stat's files unable to fetch): " + FILE_ERROR_COUNT);
         for (String name : erroredFiles) {
-            System.out.println("\t- " + name);
+            logResult("\t- " + name);
         }
+
+        try {
+            logWriter.close();
+            resultWriter.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
     private static PathValues validatePath(String path) {
@@ -158,7 +182,7 @@ public class Main {
         if (isDir(statsFolder) && isDir(pokemonTextureFolder) && isDir(spriteTextureFolder)) {
             if (!isDir(outputFolder)) {
                 if (!outputFolder.mkdirs()) {
-                    System.err.println("An error occurred trying to create the output folder. Make sure it exists!");
+                    logMessage("An error occurred trying to create the output folder. Make sure it exists!", true);
                     return;
                 }
             }
@@ -193,20 +217,20 @@ public class Main {
 
                     if (pokemonStatFile == null) {
                         FILE_ERROR_COUNT++;
-                        System.err.println("Could not locate stats file for '" + currentPokemon + "'");
+                        logMessage("Could not locate stats file for '" + currentPokemon + "'", true);
                         erroredFiles.add(fileName);
                         continue;
                     }
 
                     if (convertPokemon(pokemonStatFile, textureName, fileName, currentPokemon, outputFolder)) {
-                        System.out.println("Converted the texture '" + textureName + "' for " + currentPokemon);
+                        logMessage("Converted the texture '" + textureName + "' for " + currentPokemon);
                     } else {
                         TEXTURE_ERROR_COUNT++;
                         erroredTextures.add(textureName + ": " + fileName);
-                        System.err.println("An error occurred while trying to convert the texture '" + textureName + "' for " + currentPokemon);
+                        logMessage("An error occurred while trying to convert the texture '" + textureName + "' for " + currentPokemon, true);
                     }
                 } else {
-                    System.err.println("Found file with unsupported file extension: '" + pokemonFile.getName() + "'");
+                    logMessage("Found file with unsupported file extension: '" + pokemonFile.getName() + "'", true);
                 }
             }
         }
@@ -228,21 +252,21 @@ public class Main {
 
                     if (pokemonStatsFile == null) {
                         FILE_ERROR_COUNT++;
-                        System.err.println("Could not locate stats file for '" + pokemonObject + "'");
+                        logMessage("Could not locate stats file for '" + pokemonObject + "'", true);
                         erroredFiles.add(fileName);
                         continue;
                     }
 
                     if (convertSprite(outputFolder, pokemonStatsFile, textureName, fileName, pokemonObject)) {
-                        System.out.println("Converted the sprite '" + textureName + "' for " + pokemonObject);
+                        logMessage("Converted the sprite '" + textureName + "' for " + pokemonObject);
                     } else {
                         SPRITE_ERROR_COUNT++;
                         erroredSprites.add(textureName + ": " + fileName);
-                        System.err.println("An error occurred while trying to convert the sprite '" + textureName + "' for " + pokemonObject);
+                        logMessage("An error occurred while trying to convert the sprite '" + textureName + "' for " + pokemonObject, true);
                     }
 
                 } else {
-                    System.err.println("Found file with unsupported file extension: '" + spriteFile.getName() + "'");
+                    logMessage("Found file with unsupported file extension: '" + spriteFile.getName() + "'", true);
                 }
             }
         }
@@ -269,20 +293,20 @@ public class Main {
 
                     if (pokemonStatsFile == null) {
                         FILE_ERROR_COUNT++;
-                        System.err.println("Could not locate stats file for '" + pokemon + "'");
+                        logMessage("Could not locate stats file for '" + pokemon + "'", true);
                         erroredFiles.add(fileName);
                         continue;
                     }
 
                     if (convertEmissiveTexture(pokemon, textureName, potentialEmissiveTexture.getName(), outputFolder, pokemonStatsFile)) {
-                        System.out.println("Converted the emissive texture '" + textureName + "' for " + pokemon);
+                        logMessage("Converted the emissive texture '" + textureName + "' for " + pokemon);
                     } else {
                         EMISSIVE_TEXTURE_ERROR_COUNT++;
                         erroredEmissiveTextures.add(textureName + ": " + fileName);
-                        System.err.println("An error occurred while trying to convert the sprite '" + textureName + "' for " + pokemon);
+                        logMessage("An error occurred while trying to convert the sprite '" + textureName + "' for " + pokemon, true);
                     }
                 } else {
-                    System.err.println("Found file with unsupported file extension: '" + potentialEmissiveTexture.getName() + "'");
+                    logMessage("Found file with unsupported file extension: '" + potentialEmissiveTexture.getName() + "'", true);
                 }
             }
         }
@@ -408,6 +432,12 @@ public class Main {
             case "mimikyu":
                 formName = formName.isBlank() ? "disguised" : formName;
                 break;
+            case "wishiwashi":
+                formName = formName.isBlank() ? "solo" : formName;
+                break;
+            case "cramorant":
+                formName = formName.isBlank() ? "gulping" : formName;
+                break;
         }
 
         if (formName.equals("normal")) {
@@ -513,7 +543,7 @@ public class Main {
                                 alreadyConvertedPokemon.add(pokemonName);
                                 conversions++;
                             } else {
-                                System.out.println("Couldnt write " + pokemonName + "to file");
+                                logMessage("Couldnt write " + pokemonName + "to file");
                                 return false;
                             }
                         }
@@ -599,6 +629,33 @@ public class Main {
         }
 
         return result.toString();
+    }
+
+    private static void logMessage(String message) {
+        logMessage(message, false);
+    }
+
+    private static void logMessage(String message, boolean error) {
+        if (error) {
+            System.err.println(message);
+        } else {
+            System.out.println(message);
+        }
+        try {
+            logWriter.write(message + "\n");
+        } catch (Exception e) {
+            
+        }
+    }
+
+    private static void logResult(String message) {
+        System.out.println(message);
+
+        try {
+            resultWriter.write(message + "\n");
+        } catch (Exception e) {
+
+        }
     }
 
     private enum PathValues {
