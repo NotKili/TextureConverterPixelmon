@@ -186,6 +186,7 @@ public class Main {
             } else {
                 if (pokemonFile.getName().endsWith(".png")) {
                     String fileName = pokemonFile.getName().replace(".png", "");
+                    fileName = fileName.strip();
 
                     PokemonObject currentPokemon = createPokemonObjectFromName(fileName);
                     File pokemonStatFile = findPokemonStatsFile(outputFolder, statsFolder, currentPokemon.getName().toLowerCase());
@@ -218,6 +219,7 @@ public class Main {
             } else {
                 if (spriteFile.getName().endsWith(".png")) {
                     String fileName = spriteFile.getName().replace(".png", "");
+                    fileName = fileName.strip();
 
                     PokemonObject pokemonObject = createPokemonObjectFromName(fileName);
                     String textureName = spriteFolder.getName();
@@ -259,6 +261,8 @@ public class Main {
             } else {
                 if (potentialEmissiveTexture.getName().endsWith(".png")) {
                     String fileName = potentialEmissiveTexture.getName().replace(".png", "");
+                    fileName = fileName.strip();
+
                     PokemonObject pokemon = createPokemonObjectFromName(fileName);
 
                     File pokemonStatsFile = findPokemonStatsFile(outputFolder, pokemon.name);
@@ -289,8 +293,6 @@ public class Main {
             JsonObject pokemonObject = JsonParser.parseReader(new BufferedReader(new FileReader(statsFile))).getAsJsonObject();
             String strippedTexture = textureName.replace("custom-", "");
             strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
-            String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
-            int dexNum = pokemonObject.get("dex").getAsInt();
 
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
@@ -304,15 +306,15 @@ public class Main {
                     for (int k = 0; k < genderProperties.size(); k++) {
                         JsonObject genderObject = genderProperties.get(k).getAsJsonObject();
 
-                        if (gender.equals("ALL") || genderObject.get("gender").getAsString().equals(gender)) {
+                        if (gender.equals("ALL") || genderObject.get("gender").getAsString().equalsIgnoreCase(gender)) {
                             JsonArray allTextures = genderObject.getAsJsonArray("palettes");
 
                             for (int j = 0; j < allTextures.size(); j++) {
                                 JsonObject currentTexture = allTextures.get(j).getAsJsonObject();
 
-                                if (currentTexture.get("name").getAsString().equals(strippedTexture)) {
+                                if (currentTexture.get("name").getAsString().equalsIgnoreCase(strippedTexture)) {
                                     currentTexture.addProperty("emissive", "pixelmon:pokemon/" + textureName + "/emissive/" + fileName + ".png");
-                                    return writeToFile(outputFolder, pokemonObject, pokemonName, String.format("%03d", dexNum));
+                                    return writeToFile(outputFolder, pokemonObject, statsFile.getName());
                                 }
                             }
                         }
@@ -327,33 +329,39 @@ public class Main {
     }
 
     private static PokemonObject createPokemonObjectFromName(String name) {
+
         String[] splittedArray = name.split("-");
 
         String pokemonName;
-        String gender;
+        String gender = "";
         String formName;
         boolean shiny = false;
 
-        if (splittedArray[0].endsWith("female")) {
-            gender = "FEMALE";
-            pokemonName = splittedArray[0].replace("female", "");
-        } else if (splittedArray[0].endsWith("male")) {
-            gender = "MALE";
-            pokemonName = splittedArray[0].replace("male", "");
-        } else {
+
+        for (int i = 0; i < splittedArray.length; i++) {
+            String current = splittedArray[i];
+
+            if (current.contains("female")) {
+                gender = "FEMALE";
+                current = current.replace("female", "");
+            } else if (current.contains("male")) {
+                current = current.replace("male", "");
+                gender = "MALE";
+            }
+
+            if (current.contains("shiny")) {
+                current = current.replace("shiny", "");
+                shiny = true;
+            }
+
+            splittedArray[i] = current;
+        }
+
+        if (gender.equals("")) {
             gender = "ALL";
-            pokemonName = splittedArray[0];
         }
 
-        if (splittedArray.length > 1 && splittedArray[1].equals("shiny")) {
-            splittedArray[1] = "";
-            shiny = true;
-        }
-
-        if (pokemonName.contains("shiny")) {
-            pokemonName = pokemonName.replace("shiny", "");
-            shiny = true;
-        }
+        pokemonName = splittedArray[0];
 
         switch (pokemonName) {
             case "ho":
@@ -376,11 +384,29 @@ public class Main {
             case "kommo":
             case "jangmo":
             case "hakamo":
-                pokemonName = pokemonName + "o";
+                pokemonName = pokemonName + "-o";
                 formName = splittedArray.length > 2 ? joinArray(2, splittedArray) : "";
+                break;
+            case "nidoran":
+                pokemonName = pokemonName + gender.toLowerCase();
+                gender = "ALL";
+                formName = splittedArray.length > 1 ? joinArray(1, splittedArray) : "";
                 break;
             default:
                 formName = splittedArray.length > 1 ? joinArray(1, splittedArray) : "";
+                break;
+        }
+
+        if ((pokemonName.equals("darmanitan") || pokemonName.equals("555")) && formName.equals("standard")) {
+            formName = "";
+        }
+
+        switch (pokemonName) {
+            case "zygarde":
+                formName = formName.isBlank() ? "fifty_percent" : formName;
+                break;
+            case "mimikyu":
+                formName = formName.isBlank() ? "disguised" : formName;
                 break;
         }
 
@@ -413,7 +439,6 @@ public class Main {
             String strippedTexture = textureName.replace("custom-", "");
             strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
             String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
-            int dexNum = pokemonObject.get("dex").getAsInt();
 
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
@@ -427,16 +452,16 @@ public class Main {
                     for (int k = 0; k < genderProperties.size(); k++) {
                         JsonObject genderObject = genderProperties.get(k).getAsJsonObject();
 
-                        if (gender.equals("ALL") || genderObject.get("gender").getAsString().equals(gender)) {
+                        if (gender.equals("ALL") || genderObject.get("gender").getAsString().equalsIgnoreCase(gender)) {
                             JsonArray allTextures = genderObject.getAsJsonArray("palettes");
 
                             for (int j = 0; j < allTextures.size(); j++) {
                                 JsonObject currentTexture = allTextures.get(j).getAsJsonObject();
 
                                 if (currentTexture.get("name").getAsString().equals(strippedTexture)) {
-                                    currentTexture.addProperty("sprite", "pixelmon:sprite/" + textureName + "/" + fileName + ".png");
+                                    currentTexture.addProperty("sprite", "pixelmon:sprites/" + textureName + "/" + fileName + ".png");
 
-                                    if (writeToFile(outputFolder, pokemonObject, pokemonName, String.format("%03d", dexNum))) {
+                                    if (writeToFile(outputFolder, pokemonObject, pokeStatsFile.getName())) {
                                         alreadyConvertedPokemon.add(pokemonName);
                                         return true;
                                     } else {
@@ -461,7 +486,6 @@ public class Main {
             String strippedTexture = textureName.replace("custom-", "");
             strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
             String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
-            int dexNum = pokemonObject.get("dex").getAsInt();
 
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
@@ -472,9 +496,11 @@ public class Main {
                     JsonArray genderProperties = currentForm.get("genderProperties").getAsJsonArray();
                     String gender = pokemon.getGender();
 
+                    int conversions = 0;
+
                     for (int k = 0; k < genderProperties.size(); k++) {
                         JsonObject genderPropertiesObject = genderProperties.get(k).getAsJsonObject();
-                        if (genderPropertiesObject.get("gender").getAsString().equals(gender)) {
+                        if (genderPropertiesObject.get("gender").getAsString().equalsIgnoreCase(gender)) {
                             JsonArray currentTextures = genderPropertiesObject.getAsJsonArray("palettes");
 
                             JsonObject textureToAdd = new JsonObject();
@@ -483,15 +509,16 @@ public class Main {
 
                             currentTextures.add(textureToAdd);
 
-                            if (writeToFile(outputFolder, pokemonObject, pokemonName, String.format("%03d", dexNum))) {
+                            if (writeToFile(outputFolder, pokemonObject, statsFile.getName())) {
                                 alreadyConvertedPokemon.add(pokemonName);
+                                conversions++;
                             } else {
-                                System.out.println("Couldnt write to file");
+                                System.out.println("Couldnt write " + pokemonName + "to file");
                                 return false;
                             }
                         }
                     }
-                    return true;
+                    return conversions > 0;
                 }
             }
             return false;
@@ -512,14 +539,16 @@ public class Main {
         return formName.equals(currentForm);
     }
 
-    private static boolean writeToFile(File outputFolder, JsonObject object, String pokemonName, String dexNum) {
+    private static boolean writeToFile(File outputFolder, JsonObject object, String fileName) {
         try {
-            File pokemonFile = new File(outputFolder, dexNum + "_" + pokemonName + ".json");
+            File pokemonFile = new File(outputFolder, fileName);
             BufferedWriter writer = new BufferedWriter(new FileWriter(pokemonFile));
             writer.write(gson.toJson(object));
+            writer.flush();
             writer.close();
             return true;
         } catch (Exception e) {
+            e.printStackTrace();
             return false;
         }
     }
@@ -532,7 +561,7 @@ public class Main {
                     continue;
                 }
 
-                if (convertedFile.getName().contains(pokemonName)) {
+                if (convertedFile.getName().contains(pokemonName + "_") || convertedFile.getName().contains(pokemonName + ".")) {
                     return convertedFile;
                 }
             }
@@ -543,7 +572,7 @@ public class Main {
                     continue;
                 }
 
-                if (statsFile.getName().contains(pokemonName)) {
+                if (statsFile.getName().contains(pokemonName + "_") || statsFile.getName().contains(pokemonName + ".")) {
                     return statsFile;
                 }
             }
