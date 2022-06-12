@@ -345,7 +345,8 @@ public class Main {
                                 JsonObject currentTexture = allTextures.get(j).getAsJsonObject();
 
                                 if (currentTexture.get("name").getAsString().equalsIgnoreCase(strippedTexture)) {
-                                    currentTexture.addProperty("emissive", "pixelmon:pokemon/" + dexNum + "_" + name + "/all/" + form + "/"  + textureName + "/emissive.png");
+                                    String genderString = genderObject.get("gender").getAsString().toLowerCase(Locale.ROOT);
+                                    currentTexture.addProperty("emissive", "pixelmon:pokemon/" + dexNum + "_" + name + "/" + genderString + "/" + form + "/"  + textureName + "/emissive.png");
                                     return writeToFile(outputFolder, pokemonObject, statsFile.getName());
                                 }
                             }
@@ -501,7 +502,8 @@ public class Main {
 
                                 if (currentTexture.get("name").getAsString().equals(strippedTexture)) {
                                     String form = currentForm.get("name").getAsString().equals("") ? "base" : currentForm.get("name").getAsString();
-                                    currentTexture.addProperty("sprite", "pixelmon:pokemon/" + dexNum + "_" + name + "/all/" + form + "/"  + textureName + "/sprite.png");
+                                    String genderString = genderObject.get("gender").getAsString().toLowerCase(Locale.ROOT);
+                                    currentTexture.addProperty("sprite", "pixelmon:pokemon/" + dexNum + "_" + name + "/" + genderString + "/" + form + "/"  + textureName + "/sprite.png");
 
                                     if (writeToFile(outputFolder, pokemonObject, pokeStatsFile.getName())) {
                                         alreadyConvertedPokemon.add(pokemonName);
@@ -544,15 +546,17 @@ public class Main {
                     int conversions = 0;
 
                     for (int k = 0; k < genderProperties.size(); k++) {
-                        JsonObject genderPropertiesObject = genderProperties.get(k).getAsJsonObject();
-                        if (genderPropertiesObject.get("gender").getAsString().equalsIgnoreCase(gender)) {
-                            JsonArray currentTextures = genderPropertiesObject.getAsJsonArray("palettes");
+                        JsonObject genderObject = genderProperties.get(k).getAsJsonObject();
+
+                        if (genderObject.get("gender").getAsString().equalsIgnoreCase(gender)) {
+                            JsonArray currentTextures = genderObject.getAsJsonArray("palettes");
 
                             JsonObject textureToAdd = new JsonObject();
                             String form = currentForm.get("name").getAsString().equals("") ? "base" : currentForm.get("name").getAsString();
+                            String genderString = genderObject.get("gender").getAsString().toLowerCase(Locale.ROOT);
 
                             textureToAdd.addProperty("name", strippedTexture);
-                            textureToAdd.addProperty("texture", "pixelmon:pokemon/" + dexNum + "_" + name + "/all/" + form + "/"  + textureName + "/texture.png");
+                            textureToAdd.addProperty("texture", "pixelmon:pokemon/" + dexNum + "_" + name + "/" + genderString + "/" + form + "/"  + textureName + "/texture.png");
 
                             if (pokemon.isShiny()) {
                                 textureToAdd.addProperty("particle", "arcanery:shiny");
