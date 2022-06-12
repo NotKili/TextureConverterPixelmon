@@ -5,6 +5,7 @@ import com.google.gson.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Scanner;
 
 public class Main {
@@ -52,13 +53,15 @@ public class Main {
 
         System.out.println("Hey, please follow these steps to convert your existing texturepacks into the new pixelmon 9.0.0 stats-files!" +
                 "\n\nDisclaimer: This won't work for pokemon who previously had forms that are now palettes, i.e. Vivillon, Florges, Shellos et cetera" +
-                "\nMimikyu needs 'Disguised'/'Busted' to be added as a palette" +
                 "\nThese pokemon must be changed manually in order for the program to recognize them" +
                 "\n\nSupported is:" +
                 "\n- All known forms (i.e. dynamax, mega, arceus ..." +
                 "\n- Genders (Male, Female, All (wildcard)" +
-                "\n- Shiny / Non - Shiny Pokemon, Shinies will be saved as palette: <texturename-shiny>" +
+                "\n- Shiny / Non - Shiny Pokemon, Shinies will be saved as palette: <texturename-shiny> & will have the default shiny particle applied" +
                 "\n- Sprites (all above should apply)" +
+                "\n- Emissive textures" +
+                "\n\nAll textures now follow the base paths (i.e. pixelmon:pokemon/<dex>_<name>/all/<form>/<texture_name>/<textureName>.png)" +
+                "\nWith textureName being: [sprite, texture, emissive]" +
                 "\n\n\nMade by: NotKili (NotKili#1200)" +
                 "\nPlease send bug-reports my way (preferably over discord) when any happen! (Some will still exist, my sample with ~500 textures works flawless apart from vivillions, mareeps & other previously mentioned pokemon");
 
@@ -318,6 +321,9 @@ public class Main {
             String strippedTexture = textureName.replace("custom-", "");
             strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
 
+            String dexNum = String.format("%03d", pokemonObject.get("dex").getAsInt());
+            String name = pokemonObject.get("name").getAsString().toLowerCase(Locale.ROOT);
+
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
             for (int i = 0; i < forms.size(); i++) {
@@ -326,6 +332,8 @@ public class Main {
                 if (isForm(pokemon.getForm(), currentForm.get("name").getAsString(), pokemon.getName())) {
                     JsonArray genderProperties = currentForm.get("genderProperties").getAsJsonArray();
                     String gender = pokemon.getGender();
+
+                    String form = currentForm.get("name").getAsString().equals("") ? "base" : currentForm.get("name").getAsString();
 
                     for (int k = 0; k < genderProperties.size(); k++) {
                         JsonObject genderObject = genderProperties.get(k).getAsJsonObject();
@@ -337,7 +345,7 @@ public class Main {
                                 JsonObject currentTexture = allTextures.get(j).getAsJsonObject();
 
                                 if (currentTexture.get("name").getAsString().equalsIgnoreCase(strippedTexture)) {
-                                    currentTexture.addProperty("emissive", "pixelmon:pokemon/" + textureName + "/emissive/" + fileName + ".png");
+                                    currentTexture.addProperty("emissive", "pixelmon:pokemon/" + dexNum + "_" + name + "/all/" + form + "/"  + textureName + "/emissive.png");
                                     return writeToFile(outputFolder, pokemonObject, statsFile.getName());
                                 }
                             }
@@ -470,6 +478,9 @@ public class Main {
             strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
             String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
 
+            String dexNum = String.format("%03d", pokemonObject.get("dex").getAsInt());
+            String name = pokemonObject.get("name").getAsString().toLowerCase(Locale.ROOT);
+
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
             for (int i = 0; i < forms.size(); i++) {
@@ -489,7 +500,8 @@ public class Main {
                                 JsonObject currentTexture = allTextures.get(j).getAsJsonObject();
 
                                 if (currentTexture.get("name").getAsString().equals(strippedTexture)) {
-                                    currentTexture.addProperty("sprite", "pixelmon:sprites/" + textureName + "/" + fileName + ".png");
+                                    String form = currentForm.get("name").getAsString().equals("") ? "base" : currentForm.get("name").getAsString();
+                                    currentTexture.addProperty("sprite", "pixelmon:pokemon/" + dexNum + "_" + name + "/all/" + form + "/"  + textureName + "/sprite.png");
 
                                     if (writeToFile(outputFolder, pokemonObject, pokeStatsFile.getName())) {
                                         alreadyConvertedPokemon.add(pokemonName);
@@ -517,6 +529,9 @@ public class Main {
             strippedTexture = pokemon.isShiny() ? strippedTexture + "-shiny" : strippedTexture;
             String pokemonName = pokemonObject.get("name").getAsString().toLowerCase();
 
+            String dexNum = String.format("%03d", pokemonObject.get("dex").getAsInt());
+            String name = pokemonObject.get("name").getAsString().toLowerCase(Locale.ROOT);
+
             JsonArray forms = pokemonObject.getAsJsonArray("forms");
 
             for (int i = 0; i < forms.size(); i++) {
@@ -534,8 +549,14 @@ public class Main {
                             JsonArray currentTextures = genderPropertiesObject.getAsJsonArray("palettes");
 
                             JsonObject textureToAdd = new JsonObject();
+                            String form = currentForm.get("name").getAsString().equals("") ? "base" : currentForm.get("name").getAsString();
+
                             textureToAdd.addProperty("name", strippedTexture);
-                            textureToAdd.addProperty("texture", "pixelmon:pokemon/" + textureName + "/" + fileName + ".png");
+                            textureToAdd.addProperty("texture", "pixelmon:pokemon/" + dexNum + "_" + name + "/all/" + form + "/"  + textureName + "/texture.png");
+
+                            if (pokemon.isShiny()) {
+                                textureToAdd.addProperty("particle", "arcanery:shiny");
+                            }
 
                             currentTextures.add(textureToAdd);
 
@@ -644,7 +665,7 @@ public class Main {
         try {
             logWriter.write(message + "\n");
         } catch (Exception e) {
-            
+            e.printStackTrace();
         }
     }
 
@@ -654,7 +675,7 @@ public class Main {
         try {
             resultWriter.write(message + "\n");
         } catch (Exception e) {
-
+            e.printStackTrace();
         }
     }
 
